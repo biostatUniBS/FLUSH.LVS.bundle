@@ -1,0 +1,25 @@
+*************
+*************
+**         **
+** CHANGES **
+**         **
+*************
+*************
+
+
+* 12 Feb 2008 - SC: first version of the bundle package
+* 20 Feb 2008 - SC: - added Vignette for FLUSH
+		    - modified function Flush to perform quantile regression on the RA object
+ 		      This allow to skip the use of FlushSet (useful if someone wants to print
+		      the RA plot with the fitted quantile)
+		    - fitRA now is deprecated. Use compute.RA instead.
+* 21 Feb 2008 - SC: fixed bug in DESCRIPTION. Now the library depends on R >= 2.6.0 and 
+		    Biobase > 1.3.4.
+		    
+* 31 Mar 2008 - SC: Added normalize method for AffyBatch object. This would use expresso to get
+		    creat an ExpressionSet object.
+* 7 Dec 2008 - SC: Correct problem with ProgressTextBar (update -> updateMe)
+* 4 Jun 2009 - SC: - Implemented robust residual's standard deviations estimate
+		    - Removed stddev argument in C code: not used at all!!!
+* 21 Jul 2009 - SC: - changed .First.lib to adapt to newer version of affyPLM
+* 11 Dec 2009 - SC - v 2.0.0: added code for parallel computation. First version based on snow and affyPara

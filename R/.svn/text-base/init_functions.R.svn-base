@@ -1,0 +1,24 @@
+.First.lib <- function(libname, pkgname) {
+
+  require(affyPLM,quietly = FALSE, warn.conflicts = FALSE)
+  library.dynam("FLUSH.LVS.bundle",pkgname,libname)
+  
+  .C("lvs_Lapack_Init",PACKAGE="FLUSH.LVS.bundle")
+
+  ## register lvs as a normalization method with the affyPLM package, if that is loaded:
+  if ("package:affyPLM" %in% search())
+    {
+      if(!"lvs" %in% get("normalize.ExpressionSet.methods",pos="package:affyPLM"))
+        {
+          assign("normalize.ExpressionSet.methods",
+                 c(get("normalize.ExpressionSet.methods",pos="package:affyPLM"), "lvs"),
+                 pos="package:affyPLM")
+        }
+      if(!"lvs" %in% get("normalize.AffyBatch.methods",pos="package:affyPLM"))
+        assign("normalize.AffyBatch.methods",
+               c(get("normalize.AffyBatch.methods",pos="package:affyPLM"), "lvs"),
+               pos="package:affyPLM")
+    }
+}
+
+

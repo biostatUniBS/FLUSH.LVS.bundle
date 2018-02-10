@@ -1,0 +1,163 @@
+## --- Wrapper funtion for C code interface
+
+RA.fit <- function(X,y,nr,p,ln,start.p,n.b)
+  {
+
+    use.w = 1
+    use.cov = 1
+    ## fit the model we need only betas, residuals and weights
+    fit <- .C("lvs_rlm_fit_R",as.double(X),as.double(y),as.integer(nr),
+              as.integer(p), double(p), double(ln),double(ln))[5:7]
+    
+    ## get se_estimates & residSE
+    vfit <- unlist(.C("lvs_rlm_compute_se_R",as.double(X),as.double(y),
+                      as.integer(nr), as.integer(p),as.double(fit[[1]]),as.double(fit[[2]]),
+                      as.double(fit[[3]]),double(1), double(1), double(1),as.integer(start.p),
+                      as.integer(n.b),as.integer(use.w),as.integer(use.w))[c(8,10)])
+
+    ## verify which is needed and then get only 2
+    ##names(vfit) <- c("residSD","stddev","Array")
+
+    return(vfit)
+    
+  }
+
+
+
+## --- Create design matrix for fitting RLM models
+
+make.design <- function(nsamples,nprobes)
+  {
+    Xprob <- matrix(rep(t(contr.helmert(nprobes)),nsamples),byrow=T,ncol=nprobes-1)
+    Xsmp <- matrix(rep(contr.helmert(nsamples),each=nprobes),ncol=nsamples-1)
+    ans <- cbind(rep(1,nrow(Xprob)),Xprob,Xsmp)
+    ans
+  }
+
+
+## --- higer level function to create RA object
+
+## TODO: add gcrma method for background correction
+
+## abatch: object of class "AffyBatch"
+## Value: returns a "numeric" matrix with 2 columns
+
+
+setGeneric("compute.RA",function(abatch, verbose = FALSE, bg.RA = c("none","imm","rma"))
+           standardGeneric("compute.RA")
+           ,package="FLUSH.LVS.bundle")
+
+setMethod("compute.RA","AffyBatch",
+          function (abatch,verbose=TRUE, bg.RA=c("none","imm","rma"))
+          {
+            
+##             if(!inherits(abatch,"AffyBatch"))
+##               stop("An object of class AffyBatch is needed as input\n")
+            
+            ProbeNames <- probeNames(abatch)
+            GeneNames <- featureNames(abatch)
+            nGenes <- length(GeneNames)
+            tabProbes <- table(ProbeNames)
+            nsamples <- nrow(pData(abatch))
+            
+            bgcorrect <- match.arg(bg.RA)
+            
+            ##  if(bgcorrect == "gcrma")
+            ##    require(gcrma, quiet = TRUE)
+            
+            
+            ## modified from original just to avoid calling pm afterwards
+            
+            bg.rma <- function (object, bgtype = 1) 
+              {
+                bg.dens <- function(x) {
+                  density(x, kernel = "epanechnikov", n = 2^14)
+                }
+                ans <- .Call("bg_correct_c_copy", pm(object), mm(object), 
+                             body(bg.dens), new.env(), bgtype, PACKAGE = "affy")
+                return(ans)
+              }
+            
+            PM <- switch(bgcorrect,
+                         "none" = log2(pm(abatch)),
+                         "imm" = log2(matrix(.C("IdealMM_correct", as.double(pm(abatch)), 
+                           as.double(mm(abatch)), as.integer(length(ProbeNames)), 
+                           as.integer(nsamples), as.character(ProbeNames))[[1]], 
+                           ncol = nsamples)),
+                         "rma" = log2(bg.rma(abatch)),
+                         ##"gcrma" = log2(pm(bg.adjust.gcrma(abatch,type="affinities"))),
+                         stop("Background correction method not implemented")
+                         )
+            
+            
+            out <- matrix(0, nrow = nGenes, ncol = 2)
+            colnames(out) <- c("logResSD", "sqrtArrays")
+            rownames(out) <- GeneNames
+
+                        
+            if (verbose) {
+              cat("Fitting models\n")
+              pbt <- new("ProgressBarText", as.integer(nGenes-1),
+                         barsteps = as.integer(20))
+              open(pbt)
+            }
+            
+            ## were to start reading PM each iteration
+            start.read <- cumsum(c(0,tabProbes[-length(tabProbes)]))+1
+            stop.read <- start.read + tabProbes - 1
+            
+            n.b <- nsamples - 1
+            
+            i = 1
+            X <- make.design(nsamples=nsamples,nprobes=tabProbes[i])
+            nr <- nrow(X)
+            p <- ncol(X)
+            start.p <- tabProbes[i] + 1
+            
+            y = PM[start.read[i]:stop.read[i],]
+            
+            ln <- length(y)
+            out[i, ] <- RA.fit(X = X, y = y, nr = nr, p = p, ln = ln, 
+                               start.p, n.b)
+
+
+
+            
+            for (i in 2:nGenes)
+              {
+                
+                
+                if (tabProbes[i] != tabProbes[i - 1]) {
+                  
+                  X <- make.design(nsamples=nsamples,nprobes=tabProbes[i])
+                  start.p <- tabProbes[i] + 1
+                  
+                  nr <- nrow(X)
+                  p <- ncol(X)
+                  ln <- nsamples*tabProbes[i]
+                  
+                }
+                
+                y = PM[start.read[i]:stop.read[i],]
+                
+                out[i, ] <- RA.fit(X = X, y = y, nr = nr, p = p, ln = ln, 
+                                   start.p, n.b)
+
+                if(verbose)
+                  update(pbt)
+                
+              }
+            
+            if (verbose)
+              close(pbt)
+
+            out[,"logResSD"] <- log(out[,"logResSD"])
+            out[,"sqrtArrays"] <- sqrt(out[,"sqrtArrays"])
+            out <- as.data.frame(out)
+            
+            ans <- new("RA",data = out, ProbeID = GeneNames, cdfName = cdfName(abatch))
+
+            
+            return(ans)
+          }
+          )

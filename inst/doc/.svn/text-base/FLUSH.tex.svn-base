@@ -1,0 +1,63 @@
+%\VignetteIndexEntry{FLUSH: filtering genes}
+%\VignettePackage{FLUSH.LVS.bundle}
+\documentclass[12pt,a4paper]{article}
+\usepackage{amsmath,pstricks}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage[authoryear,round]{natbib}
+
+\textwidth=6.2in
+\textheight=8.5in
+%\parskip=.3cm
+\oddsidemargin=.1in
+\evensidemargin=.1in
+\headheight=-.3in
+
+
+\newcommand\Rpackage[1]{{\textsf{#1}\index{#1 (package)}}}
+\newcommand\dataset[1]{{\textit{#1}\index{#1 (data set)}}}
+\newcommand\Rclass[1]{{\textit{#1}\index{#1 (class)}}}
+\newcommand\Rfunction[1]{{{\small\texttt{#1}}\index{#1 (function)}}}
+\newcommand\Rfunarg[1]{{\small\texttt{#1}}}
+\newcommand\Robject[1]{{\small\texttt{#1}}}
+
+
+\newcommand{\scscst}{\scriptscriptstyle}
+\newcommand{\scst}{\scriptstyle}
+\author{Stefano Calza \\ {\tt calza@med.unibs.it} \\ \url{http://www.biostatistics.it}}
+\usepackage{/usr/share/R/share/texmf/Sweave}
+\begin{document}
+\title{Filtering genes using FLUSH}
+\maketitle
+\tableofcontents
+
+
+
+
+
+\section{Introduction}
+
+This document describes the flow-chart procedure for filtering genes
+in an experiment based on Affymetrix expression microarray data.
+
+The FLUSH method for filtering genes is based on robust linear models
+fitted at the probe level. 
+
+
+After starting R, you should load the \Rpackage{FLUSH.LVS.bundle}
+package.
+
+\section{Fitting the robust linear models}
+
+The first thing to do is get an object of class \Rclass{AffyBatch}.
+This can be done reading in CEL files using the function
+\Rfunction{ReadAffy} in the \Rpackage{affy} package. In this vignette
+we will use the data from Choe et al., available as an R data object
+here \url{http://www.biostatistics.it/library/FLUSH.RData}.
+
+To read the data in R we can do as follows, where we assume that the
+``choe.RData'' file is in the working directory.
+
+\begin{Schunk}
+\begin{Sinput}
+> load("FLUSH.RData")

@@ -1,0 +1,205 @@
+%\VignetteIndexEntry{FLUSH: filtering genes}
+%\VignettePackage{FLUSH.LVS.bundle}
+\documentclass[12pt,a4paper]{article}
+\usepackage{amsmath,pstricks}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage[authoryear,round]{natbib}
+
+\textwidth=6.2in
+\textheight=8.5in
+%\parskip=.3cm
+\oddsidemargin=.1in
+\evensidemargin=.1in
+\headheight=-.3in
+
+
+\newcommand\Rpackage[1]{{\textsf{#1}\index{#1 (package)}}}
+\newcommand\dataset[1]{{\textit{#1}\index{#1 (data set)}}}
+\newcommand\Rclass[1]{{\textit{#1}\index{#1 (class)}}}
+\newcommand\Rfunction[1]{{{\small\texttt{#1}}\index{#1 (function)}}}
+\newcommand\Rfunarg[1]{{\small\texttt{#1}}}
+\newcommand\Robject[1]{{\small\texttt{#1}}}
+
+
+\newcommand{\scscst}{\scriptscriptstyle}
+\newcommand{\scst}{\scriptstyle}
+\author{Stefano Calza \\ {\tt calza@med.unibs.it} \\ \url{http://www.biostatistics.it}}
+\begin{document}
+\title{Filtering genes using FLUSH}
+\maketitle
+\tableofcontents
+
+
+\SweaveOpts{eval=TRUE}
+
+
+\section{Introduction}
+
+This document describes the flow-chart procedure for filtering genes
+in an experiment based on Affymetrix expression microarray data.
+
+The FLUSH method for filtering genes is based on robust linear models
+fitted at the probe level. 
+
+
+After starting R, you should load the \Rpackage{FLUSH.LVS.bundle}
+package.
+
+\section{Fitting the robust linear models}
+
+The first thing to do is get an object of class \Rclass{AffyBatch}.
+This can be done reading in CEL files using the function
+\Rfunction{ReadAffy} in the \Rpackage{affy} package. In this vignette
+we will use the data from Choe et al., available as an R data object
+here \url{http://www.biostatistics.it/library/FLUSH.RData}.
+
+To read the data in R we can do as follows, where we assume that the
+``choe.RData'' file is in the working directory.
+
+<<readChoe>>=
+
+load("FLUSH.RData")
+
+
+@
+
+The we load the \Rpackage{FLUSH.LVS.bundle} package.
+
+<<load>>=
+
+library(FLUSH.LVS.bundle)
+
+
+@ 
+
+The first step is to compute the arrays effect and residual standard
+deviation. The following code do so.
+
+<<fitRA>>=
+
+RA.fit = compute.RA(choe)
+
+@ 
+
+We can now visualize the two components.
+
+<<plotRA,fig=TRUE>>=
+
+RAplot(RA.fit)
+
+
+@ 
+
+
+\section{Filtering out features}
+
+The basic idea underlying the FLUSH algorithm is that features/genes
+with low array effect, that is with low variability among arrays, are
+most probably non interesting features and can be removed.
+
+Let's assume we want to retain 40\% of the features, thus we will
+exclude 60\% of the probesets, namely those with lower inter-array
+variability. The following code creates an indicator object that can
+be used to subset the expression data.
+
+<<FlushSet>>=
+
+choe.fSet <- FlushSet(RA.fit, proportion=0.6)
+
+
+@ 
+
+
+Any other choice of the proportion of genes to exclude can be
+specified with the \Rfunarg{proportion} argument.
+
+
+The function \Rfunction{FlushSet} returns an object of class
+\Rclass{RA} that we can plot with the command \Rfunction{RAplot}.
+Setting the argument \Rfunarg{add.rq} to TRUE, will overlay the
+quantile regression fit to the Residuals vs Array plot.
+
+
+<<RAplot2,fig=TRUE>>=
+
+RAplot(choe.fSet,add.rq=TRUE)
+
+
+@ 
+
+
+We are now ready to subset our expression data. The actuall expression
+matrix, or more generally the object of class \Rclass{EpressionSet},
+can be computed using any available algorithm, like RMA, MAS5, and so
+on.
+
+Let's then compute expression values using the MAS5 algorithm as
+implemented in the function \Rfunction{mas5}
+
+<<mas5>>=
+
+#choe.MAS5 <- mas5(choe)
+#exprs(choe.mas5) <- log2(exprs(choe.mas5)) ## generally we use logged values
+
+@ 
+
+and subset the object to get a reduced expression matrix
+
+<<flush>>=
+
+choe.flushed <- Flush(choe.MAS5, choe.fSet)
+
+dim(exprs(choe.flushed))
+
+@ 
+
+The new \Rclass{EpressionSet} object will now contain only a subset of
+the features.
+
+
+Using the function \Rfunction{Flush} setting the argument
+\Rfunarg{onlyExprs} to FALSE, will return an object of class
+\Rclass{FLUSH} that can be used for plotting the selected genes in the
+array vs residual plot.
+
+<<flush2>>=
+
+choe.f2 <- Flush(choe.MAS5, choe.fSet,onlyExprs=FALSE)
+
+
+
+@
+
+<<plot2,fig=TRUE>>=
+
+RAplot(choe.f2,heat=TRUE,add.rq=TRUE)
+
+@ 
+
+
+\section{The easy way}
+
+
+If we are not interested in visualazing the Residual vs Array plot
+after choosing the proportion of genes, we can directly supply the
+function \Rfunction{Flush} an ExpressionSet object (e.g. choe.MAS5)
+and an object coming directly from \Rfunction{compute.RA} (namely
+\Robject{choe.RA} our example).  In this case \Rfunction{Flush} will
+accept the same arguments as \Rfunction{FlushSet}, i.e.
+\Rfunarg{proportion}, \Rfunarg{lambda}, \Rfunarg{delta} and
+\Rfunarg{df}. The returned object will always be of class
+\Rclass{ExpressionSet}.
+
+
+<<flushit>>=
+
+choe.rid <- Flush(choe.MAS5, RA.fit, proportion=0.6)
+
+dim(exprs(choe.rid))
+
+class(choe.rid)
+
+@ 
+
+\end{document}

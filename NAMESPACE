@@ -1,0 +1,7 @@
+useDynLib("FLUSH.LVS.bundle")
+
+export(TDshow,normalize.lvs,normalize.ExpressionSet.lvs,normalize.AffyBatch.lvs,OCshow2)
+exportClasses(RA,FLUSH)
+exportMethods(Flush,FlushSet,Flushit,fitRA,RAplot)
+exportMethods(lvs.fit,lvs)
+exportMethods(RAplot)
